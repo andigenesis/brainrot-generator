@@ -1,0 +1,18 @@
+Modern web applications use a multi-tier architecture pattern for scalability and maintainability.
+
+The typical architecture consists of several key layers. First, the client application sends requests through an API gateway. This API acts as the entry point for all incoming traffic.
+
+```mermaid
+graph TD
+    A[Client App] --> B[API Gateway]
+    B --> C[Auth Service]
+    B --> D[Cache Layer]
+    D --> E[Database]
+    C --> E
+```
+
+Behind the API gateway, we have a cache layer that stores frequently accessed data. The cache improves performance by reducing database queries. When the cache misses, the system queries the database directly.
+
+The authentication service validates user credentials and manages session tokens. This service works independently but shares the same database for user information.
+
+This microservice architecture enables independent scaling of each component based on load patterns.

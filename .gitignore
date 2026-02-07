@@ -1,11 +1,30 @@
+# Python
 __pycache__/
 *.pyc
 *.pyo
+*.egg-info/
+dist/
+build/
 .venv/
 venv/
-node_modules/
+
+# Generated video files
+*.mp4
+*.avi
+*.mov
+*.mkv
+
+# Generated audio files
 backend/temp/
 backend/output/
-.DS_Store
+
+# Node
+node_modules/
+frontend/dist/
+
+# IDE
 .vscode/
 .idea/
+
+# OS
+.DS_Store

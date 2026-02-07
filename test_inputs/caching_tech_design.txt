@@ -1,0 +1,15 @@
+Caching Hierarchical Entities: A Technical Design
+
+The system caches hierarchical entities containing three types of data: structured data payloads, UI specification trees, and agentic context windows. Each entity lives in a tree where parent nodes define schema constraints and child nodes inherit cache policies.
+
+At the storage layer, we use a tiered approach. Hot data sits in Redis with a sixty second TTL. Warm data moves to a local SQLite write-ahead log. Cold data falls through to S3 with lazy hydration on access.
+
+For the UI spec cache, we hash the component tree using a Merkle-style fingerprint. If a parent layout changes, all child component caches invalidate automatically. This prevents stale renders where a button thinks it is in a sidebar but the sidebar was removed two commits ago.
+
+The agentic context cache is the interesting part. Each agent session maintains a sliding window of the last eight thousand tokens. When an agent spawns a child agent, the parent context gets snapshot-frozen and the child gets a fresh window with a read-only reference to the parent snapshot. This means child agents can reference parent context without mutating it.
+
+Cache eviction follows a least-recently-promoted policy. Unlike LRU which tracks access, we track when an entity was last promoted up the hierarchy. A leaf node accessed frequently but never promoted stays cold. A root node promoted once stays hot because its children depend on it.
+
+The invalidation protocol uses a fanout queue. When a write hits any node, we publish to a topic keyed by entity path. Subscribers at each cache tier receive the event and decide locally whether to evict or refresh. This decouples the write path from cache management entirely.
+
+In production, this design handles twelve thousand entity reads per second with a cache hit ratio of ninety-four percent. The P99 latency for a cache miss with full hydration from S3 is one hundred forty milliseconds. For a cache hit at the Redis tier, P99 is under two milliseconds.

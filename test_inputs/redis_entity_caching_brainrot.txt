@@ -1,0 +1,11 @@
+So imagine you have a Redis cache, right? But instead of just throwing random keys in there like a psychopath, you make every single key readable. Like, you look at the key and you immediately know what it is. App colon user colon user ID colon profile. That's it. That's the entity. No UUID soup. No mystery hashes. Just English.
+
+Now here's where it gets wild. You have two types of things in this cache. Entities and collection entities. An entity is like a user profile, a team, a project. A collection entity is a sorted set of references to other entities. So your org has a teams collection, your team has a members collection. It's a tree. The whole database is a tree living in Redis.
+
+And then you let AI agents traverse this tree through MCP tools. The agent doesn't need to know SQL. It doesn't need to know about joins or foreign keys. It just says cache traverse, start at this org, go down two levels, filter by users. And the cache layer does all the walking. The agent gets back a flat list of every user in every team under that org. Sub ten milliseconds.
+
+But wait, it gets even crazier. Every entity type has a schema key that describes its fields, its SQL table mapping, its relationships, and the actual SQL queries you would use to hydrate it. So if an agent encounters an entity type it has never seen before, it can read the schema and reverse engineer the entire data model. The cache documents itself.
+
+And the final brain explosion. You use the same hierarchy for UI components. Your screen has component groups, your groups have components, each component has a spec with layout, data bindings, and action handlers. The client fetches one endpoint, gets the entire UI tree from Redis, and renders it. No app store update needed. You want to A B test a new layout? Change the cache entry. You want the AI to redesign the settings page? Let it modify the component specs. Server driven configuration powered by the same hierarchical cache that stores your data.
+
+Redis keys that read like English. A tree structure agents can walk without SQL. Self documenting schemas. Server driven UI. One cache layer, four different use cases. This is what happens when you stop treating Redis like a dumb key value store and start treating it like an information system.
