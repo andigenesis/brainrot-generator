@@ -1,3 +1,12 @@
+# === Builder stage: install Python dependencies ===
+FROM python:3.11-slim AS builder
+
+WORKDIR /build
+
+COPY backend/requirements.txt .
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+
+# === Runtime stage ===
 FROM python:3.11-slim
 
 # Install ffmpeg and system deps for moviepy/Pillow
@@ -9,9 +18,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Install Python dependencies
-COPY backend/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy installed Python packages from builder
+COPY --from=builder /install /usr/local
 
 # Copy backend code
 COPY backend/ ./

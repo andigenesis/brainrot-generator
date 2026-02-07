@@ -17,3 +17,7 @@ pytest.ini
 generate_*.py
 test_*.py
 docker-compose.yml
+venv/
+*.egg-info/
+.tox/
+*.log
