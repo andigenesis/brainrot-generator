@@ -64,12 +64,12 @@ async def test_fallback_on_empty_response(monkeypatch):
 
 def test_prompt_contains_key_instructions():
     """The transformation prompt includes required style instructions."""
-    assert "so imagine" in TRANSFORM_PROMPT.lower()
-    assert "here is where it gets wild" in TRANSFORM_PROMPT.lower()
-    assert "500 words" in TRANSFORM_PROMPT
-    assert "no markdown" in TRANSFORM_PROMPT.lower()
-    assert "simple terms" in TRANSFORM_PROMPT.lower()
-    assert "casual" in TRANSFORM_PROMPT.lower()
+    prompt_lower = TRANSFORM_PROMPT.lower()
+    assert "brainrot" in prompt_lower
+    assert "no markdown" in prompt_lower
+    assert "400 and 600 words" in prompt_lower or "500 words" in prompt_lower
+    assert "spoken narration" in prompt_lower
+    assert "{text}" in TRANSFORM_PROMPT
 
 
 def test_prompt_uses_correct_ollama_config():
