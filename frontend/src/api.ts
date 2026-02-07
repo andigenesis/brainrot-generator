@@ -47,6 +47,22 @@ export async function submitFile(file: File): Promise<GenerateResponse> {
   return response.json();
 }
 
+export async function submitAudio(audioBlob: Blob): Promise<GenerateResponse> {
+  const formData = new FormData();
+  formData.append('file', audioBlob, 'recording.webm');
+
+  const response = await fetch(`${API_BASE}/generate`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to submit audio: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
 export async function getJobStatus(jobId: string): Promise<JobStatus> {
   const response = await fetch(`${API_BASE}/jobs/${jobId}`);
 

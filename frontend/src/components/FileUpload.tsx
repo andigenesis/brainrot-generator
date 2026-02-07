@@ -18,12 +18,15 @@ export default function FileUpload({ onSubmit, disabled }: FileUploadProps) {
       'audio/wav',
       'audio/mp4',
       'audio/x-m4a',
+      'audio/ogg',
+      'audio/webm',
+      'audio/flac',
     ];
 
-    if (validTypes.includes(file.type) || file.name.match(/\.(pdf|txt|mp3|wav|m4a)$/i)) {
+    if (validTypes.includes(file.type) || file.name.match(/\.(pdf|txt|mp3|wav|m4a|ogg|webm|flac)$/i)) {
       setSelectedFile(file);
     } else {
-      alert('Please upload a PDF, TXT, or audio file (MP3, WAV, M4A)');
+      alert('Please upload a PDF, TXT, or audio file (MP3, WAV, M4A, OGG, WebM)');
     }
   };
 
@@ -79,7 +82,7 @@ export default function FileUpload({ onSubmit, disabled }: FileUploadProps) {
           ref={fileInputRef}
           type="file"
           className="hidden"
-          accept=".pdf,.txt,.mp3,.wav,.m4a,audio/*,application/pdf,text/plain"
+          accept=".pdf,.txt,.mp3,.wav,.m4a,.ogg,.webm,.flac,audio/*,application/pdf,text/plain"
           onChange={handleFileInputChange}
           disabled={disabled}
         />
@@ -109,7 +112,7 @@ export default function FileUpload({ onSubmit, disabled }: FileUploadProps) {
           )}
         </p>
         <p className="text-sm text-gray-500">
-          PDF, TXT, or audio files (MP3, WAV, M4A)
+          PDF, TXT, or audio files (MP3, WAV, M4A, OGG, WebM)
         </p>
       </div>
 

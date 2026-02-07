@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import TextInput from './components/TextInput';
 import FileUpload from './components/FileUpload';
+import VoiceInput from './components/VoiceInput';
 import JobProgress from './components/JobProgress';
 import VideoPlayer from './components/VideoPlayer';
-import { submitText, submitFile } from './api';
+import { submitText, submitFile, submitAudio } from './api';
 
 type AppState =
   | { stage: 'input' }
@@ -12,7 +13,7 @@ type AppState =
 
 function App() {
   const [state, setState] = useState<AppState>({ stage: 'input' });
-  const [inputMode, setInputMode] = useState<'text' | 'file'>('text');
+  const [inputMode, setInputMode] = useState<'voice' | 'text' | 'file'>('voice');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleTextSubmit = async (text: string) => {
@@ -41,6 +42,19 @@ function App() {
     }
   };
 
+  const handleAudioSubmit = async (audio: Blob) => {
+    setIsSubmitting(true);
+    try {
+      const response = await submitAudio(audio);
+      setState({ stage: 'processing', jobId: response.job_id });
+    } catch (error) {
+      console.error('Error submitting audio:', error);
+      alert('Failed to submit audio. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleJobComplete = (videoUrl: string) => {
     setState({ stage: 'complete', videoUrl });
   };
@@ -49,6 +63,12 @@ function App() {
     setState({ stage: 'input' });
   };
 
+  const tabs: { key: typeof inputMode; label: string }[] = [
+    { key: 'voice', label: 'Voice' },
+    { key: 'text', label: 'Text' },
+    { key: 'file', label: 'File Upload' },
+  ];
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
       {/* Header */}
@@ -56,11 +76,11 @@ function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-center">
             <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-purple-400 bg-clip-text text-transparent">
-              🧠 Brainrot Generator
+              Brainrot Generator
             </h1>
           </div>
           <p className="text-center text-gray-400 mt-2">
-            Turn your text into TikTok-style brainrot videos
+            Speak, type, or upload &mdash; get a TikTok-style brainrot video
           </p>
         </div>
       </header>
@@ -70,32 +90,31 @@ function App() {
         {state.stage === 'input' && (
           <div className="max-w-2xl mx-auto">
             {/* Input Mode Tabs */}
-            <div className="flex gap-2 mb-8 bg-gray-800 p-1 rounded-lg">
-              <button
-                onClick={() => setInputMode('text')}
-                className={`flex-1 py-3 px-4 rounded-md font-medium transition-all duration-200 ${
-                  inputMode === 'text'
-                    ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg'
-                    : 'text-gray-400 hover:text-gray-200'
-                }`}
-              >
-                📝 Text Input
-              </button>
-              <button
-                onClick={() => setInputMode('file')}
-                className={`flex-1 py-3 px-4 rounded-md font-medium transition-all duration-200 ${
-                  inputMode === 'file'
-                    ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg'
-                    : 'text-gray-400 hover:text-gray-200'
-                }`}
-              >
-                📁 File Upload
-              </button>
+            <div className="flex gap-1 mb-8 bg-gray-800 p-1 rounded-lg">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setInputMode(tab.key)}
+                  className={`flex-1 py-3 px-4 rounded-md font-medium transition-all duration-200 ${
+                    inputMode === tab.key
+                      ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg'
+                      : 'text-gray-400 hover:text-gray-200'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </div>
 
             {/* Input Components */}
             <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-8 shadow-2xl border border-gray-700">
-              {inputMode === 'text' ? (
+              {inputMode === 'voice' ? (
+                <VoiceInput
+                  onSubmit={handleTextSubmit}
+                  onSubmitAudio={handleAudioSubmit}
+                  disabled={isSubmitting}
+                />
+              ) : inputMode === 'text' ? (
                 <TextInput onSubmit={handleTextSubmit} disabled={isSubmitting} />
               ) : (
                 <FileUpload onSubmit={handleFileSubmit} disabled={isSubmitting} />
@@ -108,15 +127,15 @@ function App() {
               <ul className="space-y-2 text-gray-400 text-sm">
                 <li className="flex items-start">
                   <span className="text-purple-400 mr-2">1.</span>
-                  <span>Paste text or upload a PDF/TXT/audio file</span>
+                  <span>Speak, paste text, or upload a PDF/TXT/audio file</span>
                 </li>
                 <li className="flex items-start">
                   <span className="text-purple-400 mr-2">2.</span>
-                  <span>AI converts your content into engaging narration</span>
+                  <span>AI converts your content into viral TikTok narration</span>
                 </li>
                 <li className="flex items-start">
                   <span className="text-purple-400 mr-2">3.</span>
-                  <span>Video is generated with gameplay background and captions</span>
+                  <span>Video is generated with gameplay and word-synced captions</span>
                 </li>
                 <li className="flex items-start">
                   <span className="text-purple-400 mr-2">4.</span>
@@ -140,7 +159,7 @@ function App() {
       <footer className="border-t border-gray-800 mt-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <p className="text-center text-gray-500 text-sm">
-            Made with 🧠 and ✨ by AndI
+            Made by AndI
           </p>
         </div>
       </footer>
