@@ -1,8 +1,11 @@
 """FastAPI backend for brainrot video generator."""
 import asyncio
+import logging
 import os
 from pathlib import Path
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
@@ -105,16 +108,23 @@ async def process_video_generation(job_id: str, text: str, transform: bool = Tru
 
         # Compose video with synchronized captions and diagrams (this is the slow part)
         output_path = str(OUTPUT_DIR / f"{job_id}.mp4")
-        await asyncio.to_thread(
-            compose_video,
-            text,
-            tts_result["audio_path"],
-            gameplay_clip,
-            output_path,
-            timed_segments=tts_result.get("timed_segments"),
-            word_timings=tts_result.get("word_timings"),
-            diagram_timings=diagram_timings,
-        )
+        try:
+            await asyncio.to_thread(
+                compose_video,
+                text,
+                tts_result["audio_path"],
+                gameplay_clip,
+                output_path,
+                timed_segments=tts_result.get("timed_segments"),
+                word_timings=tts_result.get("word_timings"),
+                diagram_timings=diagram_timings,
+            )
+        except (BrokenPipeError, OSError) as pipe_err:
+            logger.exception("Video encoding pipe error for job %s", job_id)
+            raise RuntimeError(
+                f"Video encoding failed due to a broken pipe (ffmpeg crashed or ran out of memory). "
+                f"Try shorter input text or simpler settings. Details: {pipe_err}"
+            ) from pipe_err
         await job_manager.update_job_progress(job_id, 95)
 
         # Mark complete
@@ -125,6 +135,7 @@ async def process_video_generation(job_id: str, text: str, transform: bool = Tru
             os.remove(audio_path)
 
     except Exception as e:
+        logger.exception("Video generation failed for job %s", job_id)
         error_msg = f"Video generation failed: {str(e)}"
         await job_manager.mark_job_error(job_id, error_msg)
 

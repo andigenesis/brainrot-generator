@@ -46,6 +46,96 @@ Rules:
 Text to visualize:
 {text}"""
 
+# Topic-specific diagram prompt for unique diagrams per timing window
+TOPIC_DIAGRAM_PROMPT = """Generate a Mermaid diagram focused specifically on the following concepts: {keywords}
+
+Context from the narration:
+{topic_context}
+
+Rules:
+- Output ONLY the Mermaid code, starting with the diagram type (graph, sequenceDiagram, classDiagram, etc.)
+- Do NOT include triple backticks or any markdown formatting
+- Create a DIFFERENT diagram from any previous ones - focus on the relationships and details specific to these concepts
+- Use clear, short labels for nodes
+- Maximum 8 nodes for clarity
+- Choose the most appropriate diagram type for these specific concepts"""
+
+
+def _extract_topic_context(keywords: list[str], original_text: str, window: int = 50) -> str:
+    """Extract text surrounding keywords from the original narration.
+
+    Args:
+        keywords: Keywords to search for in text
+        original_text: Full narration text
+        window: Number of words before/after keyword to include
+
+    Returns:
+        Extracted context string
+    """
+    words = original_text.split()
+    if not words:
+        return original_text
+
+    contexts = []
+    for keyword in keywords:
+        for i, word in enumerate(words):
+            if keyword.lower() in word.lower():
+                start = max(0, i - window)
+                end = min(len(words), i + window + 1)
+                contexts.append(' '.join(words[start:end]))
+                break
+
+    return ' '.join(contexts) if contexts else original_text[:500]
+
+
+async def generate_topic_diagram(
+    keywords: list[str],
+    original_text: str,
+    temp_dir: str,
+    index: int,
+) -> Optional[str]:
+    """Generate a unique diagram for a specific topic/timing window.
+
+    Extracts context around the keywords from the narration, generates a
+    focused Mermaid diagram via LLM, and renders it to PNG.
+
+    Args:
+        keywords: Keywords for this timing window
+        original_text: Full narration text for context extraction
+        temp_dir: Directory for temporary PNG files
+        index: Index for unique filename
+
+    Returns:
+        Path to rendered PNG, or None on failure
+    """
+    topic_context = _extract_topic_context(keywords, original_text)
+    prompt = TOPIC_DIAGRAM_PROMPT.format(
+        keywords=', '.join(keywords),
+        topic_context=topic_context,
+    )
+
+    try:
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            response = await client.post(
+                OLLAMA_URL,
+                json={
+                    "model": OLLAMA_MODEL,
+                    "prompt": prompt,
+                    "stream": False,
+                },
+            )
+            response.raise_for_status()
+            result = response.json().get("response", "").strip()
+
+            if result and any(kw in result.lower() for kw in ["graph", "sequencediagram", "classdiagram", "flowchart"]):
+                output_path = os.path.join(temp_dir, f"topic_diagram_{index}.png")
+                if render_mermaid_to_png(result, output_path):
+                    return output_path
+    except Exception as e:
+        print(f"Topic diagram generation failed for keywords {keywords} ({e})")
+
+    return None
+
 
 def extract_mermaid_blocks(text: str) -> list[str]:
     """Extract Mermaid diagram code blocks from markdown-formatted text.
@@ -397,11 +487,29 @@ async def generate_diagram_overlays(
             print("No architecture keywords found in narration, skipping diagram overlays")
             return []
 
-        # Step 5: Map diagrams to timings (use first diagram for all timings for now)
-        # In future: could use multiple diagrams if we have multiple timing windows
-        for timing in diagram_timings:
+        # Step 5: Map diagrams to timings with unique diagrams per window
+        for i, timing in enumerate(diagram_timings):
+            png_path = None
+
+            # First: distribute pre-rendered diagrams round-robin
+            if rendered_diagrams:
+                png_path = rendered_diagrams[i % len(rendered_diagrams)]
+
+            # If we have fewer pre-rendered diagrams than timings and this
+            # index exceeds what we have, try generating a topic-specific one
+            if i >= len(rendered_diagrams):
+                topic_path = await generate_topic_diagram(
+                    timing["keywords"], text, str(temp_dir), i
+                )
+                if topic_path:
+                    png_path = topic_path
+
+            # Final fallback: reuse first rendered diagram
+            if not png_path:
+                png_path = rendered_diagrams[0]
+
             diagram_overlays.append({
-                "png_path": rendered_diagrams[0],  # Use first diagram
+                "png_path": png_path,
                 "start_s": timing["start_s"],
                 "duration_s": timing["duration_s"],
                 "label": f"Architecture: {', '.join(timing['keywords'][:2])}"

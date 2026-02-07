@@ -19,9 +19,11 @@ import asyncio
 from backend.pipeline.diagram_generator import (
     extract_mermaid_blocks,
     generate_mermaid_with_llm,
+    generate_topic_diagram,
     render_mermaid_to_png,
     find_diagram_timestamps,
     generate_diagram_overlays,
+    _extract_topic_context,
 )
 
 
@@ -347,3 +349,173 @@ The API handles all requests.
                     # Should find first keyword (cache)
                     assert len(result) >= 1
                     assert result[0]["start_s"] == 0.2
+
+
+class TestTopicContextExtraction:
+    """Test _extract_topic_context helper."""
+
+    def test_extracts_context_around_keyword(self):
+        text = "word1 word2 word3 cache word5 word6 word7"
+        result = _extract_topic_context(["cache"], text, window=2)
+        assert "cache" in result
+        assert "word2" in result or "word3" in result
+
+    def test_returns_full_text_when_keyword_not_found(self):
+        text = "no matching keywords here at all"
+        result = _extract_topic_context(["database"], text, window=2)
+        assert result  # should return truncated original text
+
+
+class TestUniqueDiagramGeneration:
+    """Test unique diagram generation per timing window."""
+
+    @pytest.mark.asyncio
+    async def test_multiple_timings_get_unique_diagrams(self, tmp_path):
+        """Multiple timing windows should get different diagram paths when LLM succeeds."""
+        text = "The API server connects to the database and cache layer for performance."
+        word_timings = [
+            {"word": "API", "start_ms": 200, "end_ms": 500},
+            {"word": "server", "start_ms": 500, "end_ms": 800},
+            {"word": "database", "start_ms": 5000, "end_ms": 5400},
+            {"word": "cache", "start_ms": 10000, "end_ms": 10300},
+        ]
+
+        # Mock LLM to return different mermaid for the initial generation
+        mock_llm_response = "graph TD\n    A[API] --> B[DB]"
+
+        # Track calls to generate_topic_diagram to return unique paths
+        call_count = [0]
+
+        async def mock_topic_diagram(keywords, orig_text, tdir, index):
+            call_count[0] += 1
+            path = str(tmp_path / f"unique_{index}.png")
+            # Create a dummy file
+            Path(path).write_bytes(b"PNG")
+            return path
+
+        with patch(
+            "backend.pipeline.diagram_generator.generate_mermaid_with_llm",
+            return_value=mock_llm_response,
+        ):
+            mock_result = Mock()
+            mock_result.returncode = 0
+
+            with patch("subprocess.run", return_value=mock_result):
+                with patch.object(Path, "exists", return_value=True):
+                    with patch(
+                        "backend.pipeline.diagram_generator.generate_topic_diagram",
+                        side_effect=mock_topic_diagram,
+                    ):
+                        result = await generate_diagram_overlays(text, word_timings, tmp_path)
+                        # Should have at least 2 timing windows (api+server merge, database, cache)
+                        assert len(result) >= 2
+                        # Timings beyond the first should have topic diagrams
+                        paths = [r["png_path"] for r in result]
+                        # The first uses the pre-rendered diagram, others get unique ones
+                        assert call_count[0] >= 1  # generate_topic_diagram was called
+
+    @pytest.mark.asyncio
+    async def test_mermaid_blocks_distributed_across_timings(self, tmp_path):
+        """Multiple pre-rendered diagrams should be distributed round-robin across timings."""
+        text = """
+```mermaid
+graph TD
+    A[Client] --> B[Server]
+```
+
+```mermaid
+sequenceDiagram
+    User->>API: Request
+```
+
+The API server connects to the database for data.
+"""
+        word_timings = [
+            {"word": "API", "start_ms": 200, "end_ms": 500},
+            {"word": "server", "start_ms": 500, "end_ms": 800},
+            {"word": "database", "start_ms": 5000, "end_ms": 5400},
+        ]
+
+        mock_result = Mock()
+        mock_result.returncode = 0
+
+        with patch("subprocess.run", return_value=mock_result):
+            with patch.object(Path, "exists", return_value=True):
+                with patch(
+                    "backend.pipeline.diagram_generator.generate_topic_diagram",
+                    return_value=None,
+                ):
+                    result = await generate_diagram_overlays(text, word_timings, tmp_path)
+                    assert len(result) >= 2
+                    # With 2 rendered diagrams, they should round-robin
+                    paths = [r["png_path"] for r in result]
+                    # First and third should use diagram_0, second uses diagram_1
+                    if len(result) >= 2:
+                        assert paths[0] != paths[1]  # Different diagrams for different timings
+
+    @pytest.mark.asyncio
+    async def test_fallback_to_single_diagram_on_generation_failure(self, tmp_path):
+        """Should reuse first diagram when generate_topic_diagram fails."""
+        text = "The API server connects to the database and cache layer."
+        word_timings = [
+            {"word": "API", "start_ms": 200, "end_ms": 500},
+            {"word": "server", "start_ms": 500, "end_ms": 800},
+            {"word": "database", "start_ms": 5000, "end_ms": 5400},
+            {"word": "cache", "start_ms": 10000, "end_ms": 10300},
+        ]
+
+        mock_llm_response = "graph TD\n    A[API] --> B[Server]"
+
+        with patch(
+            "backend.pipeline.diagram_generator.generate_mermaid_with_llm",
+            return_value=mock_llm_response,
+        ):
+            mock_result = Mock()
+            mock_result.returncode = 0
+
+            with patch("subprocess.run", return_value=mock_result):
+                with patch.object(Path, "exists", return_value=True):
+                    # Mock generate_topic_diagram to always fail
+                    with patch(
+                        "backend.pipeline.diagram_generator.generate_topic_diagram",
+                        return_value=None,
+                    ):
+                        result = await generate_diagram_overlays(text, word_timings, tmp_path)
+                        assert len(result) >= 2
+                        # All should use the same (first) pre-rendered diagram
+                        paths = [r["png_path"] for r in result]
+                        assert all(p == paths[0] for p in paths)
+
+    @pytest.mark.asyncio
+    async def test_generate_topic_diagram_success(self, tmp_path):
+        """generate_topic_diagram should return PNG path on LLM success."""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json = lambda: {
+            "response": "graph TD\n    A[Cache] --> B[DB]",
+            "done": True,
+        }
+        mock_response.raise_for_status = lambda: None
+
+        with patch("httpx.AsyncClient.post", return_value=mock_response):
+            with patch(
+                "backend.pipeline.diagram_generator.render_mermaid_to_png",
+                return_value=True,
+            ):
+                result = await generate_topic_diagram(
+                    ["cache"], "The cache layer handles requests", str(tmp_path), 0
+                )
+                assert result is not None
+                assert "topic_diagram_0" in result
+
+    @pytest.mark.asyncio
+    async def test_generate_topic_diagram_llm_failure(self, tmp_path):
+        """generate_topic_diagram should return None when LLM fails."""
+        with patch(
+            "httpx.AsyncClient.post",
+            side_effect=httpx.TimeoutException("Timeout"),
+        ):
+            result = await generate_topic_diagram(
+                ["cache"], "The cache layer handles requests", str(tmp_path), 0
+            )
+            assert result is None

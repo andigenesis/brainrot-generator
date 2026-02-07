@@ -1,9 +1,12 @@
 """Video compositing using MoviePy."""
+import logging
 import os
 import random
 import tempfile
 from pathlib import Path
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 from PIL import Image, ImageDraw, ImageFont
 try:
@@ -560,25 +563,45 @@ def compose_video(
     # Set audio
     final_video = _clip_set_audio(final_video, audio)
 
-    # Write output file
-    final_video.write_videofile(
-        output_path,
-        fps=30,
-        codec='libx264',
-        audio_codec='aac',
-        preset='medium',
-        threads=4
-    )
+    # Write output file with retry on broken pipe
+    try:
+        try:
+            final_video.write_videofile(
+                output_path,
+                fps=30,
+                codec='libx264',
+                audio_codec='aac',
+                preset='medium',
+                threads=4
+            )
+        except (BrokenPipeError, OSError) as e:
+            logger.exception(
+                "write_videofile failed (preset=medium), retrying with ultrafast: %s", e
+            )
+            # Retry once with ultrafast preset (less ffmpeg buffering)
+            final_video.write_videofile(
+                output_path,
+                fps=30,
+                codec='libx264',
+                audio_codec='aac',
+                preset='ultrafast',
+                threads=2
+            )
+    finally:
+        # Ensure all clips are closed even on failure
+        for clip_obj in (audio, gameplay, final_video):
+            try:
+                clip_obj.close()
+            except Exception:
+                pass
 
-    # Clean up
-    audio.close()
-    gameplay.close()
-    final_video.close()
-
-    # Remove temporary caption image files
-    for temp_file in temp_files_to_cleanup:
-        if os.path.exists(temp_file):
-            os.unlink(temp_file)
+        # Remove temporary caption image files
+        for temp_file in temp_files_to_cleanup:
+            try:
+                if os.path.exists(temp_file):
+                    os.unlink(temp_file)
+            except OSError:
+                pass
 
     return output_path
 
