@@ -6,7 +6,12 @@ from typing import Optional, Dict, List
 
 import edge_tts
 from gtts import gTTS
-from moviepy.editor import AudioFileClip
+try:
+    # moviepy 2.x
+    from moviepy import AudioFileClip
+except ImportError:
+    # moviepy 1.x
+    from moviepy.editor import AudioFileClip
 
 
 async def generate_tts(

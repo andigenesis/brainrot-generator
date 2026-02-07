@@ -6,14 +6,64 @@ from pathlib import Path
 from typing import Optional
 
 from PIL import Image, ImageDraw, ImageFont
-from moviepy.editor import (
-    VideoFileClip,
-    AudioFileClip,
-    ImageClip,
-    CompositeVideoClip,
-    concatenate_videoclips
-)
-from moviepy.video.fx import resize
+try:
+    # moviepy 2.x
+    from moviepy import (
+        VideoFileClip,
+        AudioFileClip,
+        ImageClip,
+        CompositeVideoClip,
+        concatenate_videoclips,
+        vfx,
+    )
+    MOVIEPY_V2 = True
+except ImportError:
+    # moviepy 1.x
+    from moviepy.editor import (
+        VideoFileClip,
+        AudioFileClip,
+        ImageClip,
+        CompositeVideoClip,
+        concatenate_videoclips,
+    )
+    from moviepy.video.fx import resize as _resize_mod
+    MOVIEPY_V2 = False
+
+
+def _clip_set_start(clip, t):
+    return clip.with_start(t) if MOVIEPY_V2 else clip.set_start(t)
+
+
+def _clip_set_duration(clip, d):
+    return clip.with_duration(d) if MOVIEPY_V2 else clip.set_duration(d)
+
+
+def _clip_set_position(clip, pos):
+    return clip.with_position(pos) if MOVIEPY_V2 else clip.set_position(pos)
+
+
+def _clip_set_audio(clip, audio):
+    return clip.with_audio(audio) if MOVIEPY_V2 else clip.set_audio(audio)
+
+
+def _clip_subclip(clip, start, end):
+    return clip.subclipped(start, end) if MOVIEPY_V2 else clip.subclip(start, end)
+
+
+def _clip_resize(clip, newsize):
+    if MOVIEPY_V2:
+        return clip.resized(newsize=newsize)
+    return clip.fx(_resize_mod.resize, newsize=newsize)
+
+
+def _clip_crossfade(clip, fade_duration):
+    if MOVIEPY_V2:
+        return clip.with_effects([vfx.CrossFadeIn(fade_duration), vfx.CrossFadeOut(fade_duration)])
+    return clip.crossfadein(fade_duration).crossfadeout(fade_duration)
+
+
+def _clip_transform(clip, func):
+    return clip.transform(func) if MOVIEPY_V2 else clip.fl(func)
 
 
 def _wrap_text(text: str, font: ImageFont.FreeTypeFont, max_width: int) -> list[str]:
@@ -334,8 +384,8 @@ def _create_timed_captions(
 
         # Create ImageClip with extended timing for continuous caption visibility
         clip = ImageClip(temp_file.name)
-        clip = clip.set_start(word_timing['start']).set_duration(word_clip_duration)
-        clip = clip.set_position('center')
+        clip = _clip_set_duration(_clip_set_start(clip, word_timing['start']), word_clip_duration)
+        clip = _clip_set_position(clip, 'center')
 
         caption_clips.append({
             'clip': clip,
@@ -395,15 +445,15 @@ def _create_diagram_overlays(
 
         # Create ImageClip
         clip = ImageClip(temp_file.name)
-        clip = clip.set_start(start_s).set_duration(duration_s)
+        clip = _clip_set_duration(_clip_set_start(clip, start_s), duration_s)
 
         # Position: centered horizontally, in upper 60% (at 30% from top)
-        clip = clip.set_position(('center', int(height * 0.15)))
+        clip = _clip_set_position(clip, ('center', int(height * 0.15)))
 
         # Add fade in/out (0.5s each, if duration allows)
         fade_duration = min(0.5, duration_s / 3)
         if duration_s > fade_duration * 2:
-            clip = clip.crossfadein(fade_duration).crossfadeout(fade_duration)
+            clip = _clip_crossfade(clip, fade_duration)
 
         diagram_clips.append({
             'clip': clip,
@@ -457,11 +507,11 @@ def compose_video(
         gameplay = concatenate_videoclips([gameplay] * loops_needed)
 
     # Trim to exact duration
-    gameplay = gameplay.subclip(0, video_duration)
+    gameplay = _clip_subclip(gameplay, 0, video_duration)
 
     # Resize gameplay to target resolution (9:16) only if needed
     if gameplay.size != resolution:
-        gameplay = gameplay.fx(resize.resize, newsize=resolution)
+        gameplay = _clip_resize(gameplay, newsize=resolution)
 
     # Create captions - either timed or static
     temp_files_to_cleanup = []
@@ -478,8 +528,8 @@ def compose_video(
 
         # Load the text overlay as an ImageClip
         caption = ImageClip(caption_image_path)
-        caption = caption.set_duration(video_duration)
-        caption = caption.set_position('center')
+        caption = _clip_set_duration(caption, video_duration)
+        caption = _clip_set_position(caption, 'center')
         caption_clips = [caption]
 
     # Create diagram overlays if provided
@@ -501,14 +551,14 @@ def compose_video(
                     return (frame * 0.5).astype('uint8')
             return frame
 
-        gameplay = gameplay.fl(apply_dimming)
+        gameplay = _clip_transform(gameplay, apply_dimming)
 
     # Composite video: gameplay (dimmed during diagrams) -> diagrams -> captions (always on top)
     # Layer order matters: earlier elements are below later elements
     final_video = CompositeVideoClip([gameplay] + diagram_clips + caption_clips)
 
     # Set audio
-    final_video = final_video.set_audio(audio)
+    final_video = _clip_set_audio(final_video, audio)
 
     # Write output file
     final_video.write_videofile(
