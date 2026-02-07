@@ -358,7 +358,7 @@ brainrot-generator/
 ### Running Tests
 
 ```bash
-# Run all tests (113 pass, 10 skip)
+# Run all tests (134 pass, 10 skip)
 python3 -m pytest backend/tests/ backend/test_imports.py backend/test_synchronized_captions.py -q
 
 # Run specific test suites
