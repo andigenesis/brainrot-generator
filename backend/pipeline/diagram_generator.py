@@ -1,4 +1,5 @@
 """Architecture diagram extraction, generation, and overlay timing for brainrot videos."""
+import os
 import re
 import subprocess
 import tempfile
@@ -10,7 +11,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 
 # Ollama configuration
-OLLAMA_URL = "http://localhost:11434/api/generate"
+OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434/api/generate")
 OLLAMA_MODEL = "qwen3:8b"
 
 # Architecture keywords to detect diagram timing

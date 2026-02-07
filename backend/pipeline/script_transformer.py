@@ -1,7 +1,9 @@
 """LLM-powered script transformation for brainrot narration."""
+import os
+
 import httpx
 
-OLLAMA_URL = "http://localhost:11434/api/generate"
+OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434/api/generate")
 OLLAMA_MODEL = "qwen3:8b"
 
 TRANSFORM_PROMPT = """You are a viral TikTok/Reddit storyteller who makes technical concepts absolutely unhinged and captivating. Rewrite the following text as a spoken narration script for a brainrot-style TikTok video.
