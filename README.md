@@ -584,7 +584,7 @@ for v in voices:
 - **TTS Fallback**: gTTS 2.5 (Google, no word timing)
 - **Video Compositing**: MoviePy 1.0.3 + ffmpeg
 - **Image Processing**: Pillow 10.2
-- **PDF Parsing**: PyPDF2 3.0
+- **PDF Parsing**: pypdf 4.0+
 - **HTTP Client**: httpx 0.27 (for Ollama API)
 - **Async Files**: aiofiles 23.2
 - **Data Validation**: Pydantic 2.5

@@ -1,11 +1,11 @@
-fastapi==0.128.4
-uvicorn[standard]==0.40.0
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
 python-multipart==0.0.22
 edge-tts==7.2.7
 gTTS==2.5.0
 moviepy==1.0.3
 Pillow==10.4.0
-PyPDF2==3.0.1
-aiofiles==25.1.0
+pypdf>=4.0.0
+aiofiles==23.2.1
 httpx==0.27.0
-pydantic==2.12.5
+pydantic==2.10.0

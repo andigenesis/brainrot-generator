@@ -2,7 +2,7 @@
 from io import BytesIO
 from typing import Optional
 
-from PyPDF2 import PdfReader
+from pypdf import PdfReader
 
 
 def extract_text(file_bytes: bytes, filename: str) -> str:
