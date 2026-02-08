@@ -274,7 +274,9 @@ async def shutdown_event():
 
 # Serve frontend static files (must be after API routes)
 if STATIC_DIR.exists():
-    app.mount("/assets", StaticFiles(directory=str(STATIC_DIR / "assets")), name="static-assets")
+    assets_dir = STATIC_DIR / "assets"
+    if assets_dir.exists():
+        app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="static-assets")
 
     @app.get("/{full_path:path}")
     async def serve_frontend(full_path: str):
