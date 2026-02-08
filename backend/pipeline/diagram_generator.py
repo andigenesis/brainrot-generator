@@ -488,6 +488,8 @@ async def generate_diagram_overlays(
             return []
 
         # Step 5: Map diagrams to timings with unique diagrams per window
+        # Cap at 4 diagram overlays to prevent OOM during video compositing
+        diagram_timings = diagram_timings[:4]
         for i, timing in enumerate(diagram_timings):
             png_path = None
 

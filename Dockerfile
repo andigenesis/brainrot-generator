@@ -43,6 +43,7 @@ ENV TEMP_DIR=/app/temp
 ENV STATIC_DIR=/app/static
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
+ENV OLLAMA_URL=http://host.docker.internal:11434/api/generate
 
 EXPOSE 8000
 

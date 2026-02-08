@@ -568,11 +568,11 @@ def compose_video(
         try:
             final_video.write_videofile(
                 output_path,
-                fps=30,
+                fps=24,
                 codec='libx264',
                 audio_codec='aac',
-                preset='medium',
-                threads=4
+                preset='ultrafast',
+                threads=2
             )
         except (BrokenPipeError, OSError) as e:
             logger.exception(
