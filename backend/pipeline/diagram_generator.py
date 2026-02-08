@@ -115,7 +115,7 @@ async def generate_topic_diagram(
     )
 
     try:
-        async with httpx.AsyncClient(timeout=120.0) as client:
+        async with httpx.AsyncClient(timeout=300.0) as client:
             response = await client.post(
                 OLLAMA_URL,
                 json={
@@ -169,7 +169,7 @@ async def generate_mermaid_with_llm(text: str) -> Optional[str]:
     prompt = DIAGRAM_PROMPT.format(text=text)
 
     try:
-        async with httpx.AsyncClient(timeout=120.0) as client:
+        async with httpx.AsyncClient(timeout=300.0) as client:
             response = await client.post(
                 OLLAMA_URL,
                 json={

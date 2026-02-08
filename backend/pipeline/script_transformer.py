@@ -50,7 +50,7 @@ async def transform_to_brainrot(text: str) -> str:
     prompt = TRANSFORM_PROMPT.format(text=text)
 
     try:
-        async with httpx.AsyncClient(timeout=120.0) as client:
+        async with httpx.AsyncClient(timeout=300.0) as client:
             response = await client.post(
                 OLLAMA_URL,
                 json={
