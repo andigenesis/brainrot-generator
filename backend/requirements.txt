@@ -3,7 +3,7 @@ starlette>=0.49.1  # CVE-2024-47874 + CVE-2025-54121 + GHSA-7f5h-v6xp-fcq8
 uvicorn[standard]==0.32.1
 python-multipart==0.0.22
 edge-tts==7.2.7
-gTTS==2.5.0
+gTTS==2.5.4
 moviepy==1.0.3
 Pillow==12.1.1
 pypdf>=4.0.0
