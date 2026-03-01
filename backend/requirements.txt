@@ -6,7 +6,7 @@ edge-tts==7.2.7
 gTTS==2.5.4
 moviepy==1.0.3
 Pillow==12.1.1
-pypdf>=4.0.0
+pypdf>=6.7.4  # CVE-2026-27888 (FlateDecode RAM exhaustion) + CVE-2026-28351 (RunLengthDecode RAM exhaustion)
 aiofiles==25.1.0
 httpx==0.28.1
 pydantic==2.12.5
